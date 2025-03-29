@@ -1,300 +1,112 @@
-/* Base styles and resets */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-}
-
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background-color: #000;
-    color: #fff;
-    height: 100vh;
-    width: 100%;
-    overflow: hidden;
-    position: fixed;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f8f8f8;
 }
 
-.app-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-    position: relative;
+.container {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
-/* Header styles */
-.app-header {
-    text-align: center;
-    padding: 10px 0;
-    background-color: rgba(0, 0, 0, 0.8);
+h1 {
+    color: #007aff;
+    margin-top: 0;
+    font-size: 2.5em;
 }
 
-.app-header h1 {
-    font-size: 20px;
-    font-weight: 500;
-    margin-bottom: 4px;
+h2 {
+    color: #007aff;
+    margin-top: 30px;
 }
 
 .app-description {
-    font-size: 14px;
-    color: #ccc;
-    margin: 0;
+    font-size: 1.2em;
+    line-height: 1.6;
+    margin-bottom: 30px;
 }
 
-/* Camera container styles */
-.camera-container {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-    background-color: #000;
-}
-
-#camera-view, #playback-view {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background-color: #000;
-}
-
-/* Camera placeholder when not available */
-#camera-view:not([srcObject]) {
-    background-image: 
-        radial-gradient(circle at center, rgba(50, 50, 50, 0.8) 0, rgba(0, 0, 0, 0.8) 70%),
-        repeating-linear-gradient(0deg, transparent, transparent 4px, rgba(30, 30, 30, 1) 4px, rgba(30, 30, 30, 1) 8px);
-    background-size: cover, 100px 100px;
-    position: relative;
-}
-
-#camera-view:not([srcObject])::after {
-    content: "Camera Preview";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #999;
-    font-size: 18px;
-    text-align: center;
-    width: 100%;
-}
-
-/* Status indicators */
-.status-container {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 10;
-    background-color: rgba(0, 0, 0, 0.6);
-    padding: 5px 10px;
-    border-radius: 15px;
-}
-
-#status-indicator {
-    font-weight: bold;
-    color: #ff3b30;
-}
-
-#timer-display {
-    font-family: monospace;
-    font-size: 16px;
-}
-
-/* Control buttons */
-.controls-container {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    padding: 20px 0;
-    background-color: rgba(0, 0, 0, 0.8);
-}
-
-.control-button {
-    width: 44px;
-    height: 44px;
-    border-radius: 22px;
-    background: transparent;
-    border: none;
-    color: #fff;
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
-
-.record-button {
-    width: 70px;
-    height: 70px;
-    border-radius: 35px;
-    background-color: #fff;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
-
-.record-icon {
-    width: 54px;
-    height: 54px;
-    border-radius: 27px;
-    background-color: #ff3b30;
-    transition: all 0.2s ease;
-}
-
-.record-button.recording .record-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 4px;
-}
-
-/* Playback controls */
-.playback-controls {
-    background-color: rgba(0, 0, 0, 0.8);
-    padding: 15px;
-    text-align: center;
-}
-
-.playback-controls label {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 14px;
-}
-
-#speed-control {
-    width: 80%;
-    max-width: 300px;
-    margin: 0 auto;
-    -webkit-appearance: none;
-    height: 8px;
-    background: #333;
-    outline: none;
-    border-radius: 4px;
-}
-
-#speed-control::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #007aff;
-    cursor: pointer;
-}
-
-#speed-control::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #007aff;
-    cursor: pointer;
-}
-
-/* Settings panel */
-.settings-panel {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: rgba(20, 20, 20, 0.95);
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
-    z-index: 100;
-    transform: translateY(100%);
-    transition: transform 0.3s ease-in-out;
-    max-height: 60vh;
-    overflow-y: auto;
-}
-
-.settings-panel.active {
-    transform: translateY(0);
-}
-
-.settings-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 20px;
-    border-bottom: 1px solid #333;
-}
-
-.settings-content {
-    padding: 20px;
-}
-
-.setting-group {
-    margin-bottom: 20px;
-}
-
-.setting-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 16px;
-    color: #ccc;
-}
-
-.setting-group select {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    background-color: #333;
+.download-btn {
+    display: inline-block;
+    background-color: #007aff;
     color: white;
-    border: none;
-    font-size: 16px;
-    -webkit-appearance: none;
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px top 50%;
-    background-size: 12px auto;
+    padding: 15px 30px;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: bold;
+    margin: 20px 0;
+    transition: background-color 0.3s ease;
+    font-size: 1.1em;
 }
 
-/* Utility classes */
-.hidden {
-    display: none;
+.download-btn:hover {
+    background-color: #0055b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-.icon-button {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 20px;
-    cursor: pointer;
+.features {
+    margin: 30px 0;
 }
 
-/* Responsive adjustments */
-@media (min-height: 700px) {
-    .app-header h1 {
-        font-size: 24px;
+.features h3 {
+    color: #333;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+    font-size: 1.3em;
+}
+
+.features ul, .features ol {
+    padding-left: 25px;
+}
+
+.features li {
+    margin-bottom: 10px;
+}
+
+.screenshot {
+    max-width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin: 20px 0;
+    display: block;
+}
+
+.footer {
+    margin-top: 40px;
+    font-size: 0.9em;
+    color: #666;
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.highlight {
+    background-color: #f0f7ff;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #007aff;
+    margin: 20px 0;
+}
+
+@media (max-width: 600px) {
+    .container {
+        padding: 20px;
     }
     
-    .record-button {
-        width: 80px;
-        height: 80px;
+    h1 {
+        font-size: 2em;
     }
     
-    .record-icon {
-        width: 64px;
-        height: 64px;
+    .download-btn {
+        display: block;
+        text-align: center;
     }
-    
-    .record-button.recording .record-icon {
-        width: 28px;
-        height: 28px;
-    }
-}
-
-/* iOS-like animations */
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-}
-
-.recording #status-indicator {
-    animation: pulse 1.5s infinite;
 }
