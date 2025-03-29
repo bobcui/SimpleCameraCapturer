@@ -1,0 +1,66 @@
+Certainly, based on your responses, here's a refined outline of the "SimpleCapture" iOS application, incorporating your specifications:
+
+**Project Title:** SimpleCapture
+
+**Objective:** Develop an iOS application that enables users to record high-quality slow-motion videos with customizable settings and an intuitive user interface.
+
+**Core Features:**
+
+1. **Video Recording:**
+   - **Frame Rate Options:** Support recording at 120 frames per second (FPS) and 60 FPS.
+   - **Configurable Duration:** Allow users to set the recording duration, with a default of 10 seconds.
+   - **User Interface During Recording:**
+     - **Status Indicator:** Display a prominent "Recording" label on the screen.
+     - **Timer Display:** Show a countdown timer indicating the remaining recording time.
+   - **Camera Selection:** Enable switching between front and rear cameras, with visual feedback upon switching.
+   - **Safety Mechanism:** Disable camera switching during an active recording session to ensure stability.
+
+2. **Playback Functionality:**
+   - **Automatic Looping:** After recording, automatically replay the video in a continuous loop.
+   - **Playback Speed Control:** Allow users to adjust the playback speed, with a default of 0.5x. The speed can be set from 0.25x to 2.0x in 0.25x increments.
+   - **Audio Handling:** Mute audio during playback to focus on visual content.
+   - **User Interface During Playback:**
+     - **Status Indicator:** Display a prominent "Replaying" label on the screen.
+     - **Timer Display:** Show a timer indicating the current playback time.
+   - **Playback Control:** Continue looping playback until the user initiates a new recording by clicking the "Record" button.
+
+3. **User Interface and Experience:**
+   - **Intuitive Design:** Develop a clean and responsive interface that enhances user engagement.
+   - **Status Indicators:** Provide clear visual cues during recording and playback phases.
+   - **Progress Visualization:** Incorporate dynamic progress indicators corresponding to recording and playback statuses.
+   - **Camera Switch Feedback:** Offer visual confirmation when toggling between front and rear cameras.
+   - **Playback Speed Adjustment:** Include a slider or stepper control for users to adjust playback speed within the specified range.
+
+4. **Video Resolution and Quality:**
+   - **Resolution:** Record videos at 1080p to ensure high-quality output.
+
+5. **Storage and File Management:**
+   - **Temporary Storage:** Store recorded videos temporarily within the app for playback purposes.
+   - **No Permanent Storage:** Do not save recordings to the device's gallery or file system unless explicitly implemented in future versions.
+
+6. **Device Orientation:**
+   - **Orientation Support:** Restrict the application to portrait orientation during both recording and playback.
+
+7. **Compatibility:**
+   - **Supported Devices:** Ensure the application functions seamlessly on iPad 10, iPhone XS Max, and newer iOS devices.
+   - **Older Devices:** No need to support older devices lacking the required hardware capabilities.
+
+**Suggested User Interface Layout:**
+
+- **Main Screen:**
+  - **Top Section:**
+    - "SimpleCapture" title centered at the top.
+  - **Camera Viewfinder:**
+    - Occupies the majority of the screen, displaying the live camera feed.
+  - **Status Indicator:**
+    - Positioned at the top-left corner, displaying "Recording" during recording and "Replaying" during playback.
+  - **Timer Display:**
+    - Located adjacent to the status indicator, showing the countdown during recording and elapsed time during playback.
+  - **Playback Speed Control:**
+    - Slider or stepper positioned below the viewfinder, allowing users to adjust playback speed between 0.25x and 2.0x.
+  - **Bottom Section:**
+    - **Record Button:** Prominently centered, initiating recording when tapped. During playback, tapping this button stops playback and prepares for a new recording.
+    - **Camera Switch Button:** Located to the left of the Record button, enabling users to switch between front and rear cameras when not recording.
+    - **Settings Button:** Positioned to the right of the Record button, allowing access to configurable settings such as recording duration and frame rate.
+
+This refined specification provides a comprehensive outline of the "SimpleCapture" app's requirements, facilitating efficient development within the Replit environment. If you have any further questions or need additional details, feel free to ask. 
