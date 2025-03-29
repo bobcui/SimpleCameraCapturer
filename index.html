@@ -3,70 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SimpleCapture iOS Application</title>
+    <title>SimpleCapture - High-Quality Slow-Motion iOS App</title>
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" type="image/png" href="generated-icon.png">
 </head>
 <body>
-    <div class="container">
-        <div style="display: flex; align-items: center; margin-bottom: 20px;">
-            <img src="generated-icon.png" alt="SimpleCapture App Icon" style="width: 80px; height: 80px; margin-right: 20px; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-            <h1>SimpleCapture</h1>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <img src="generated-icon.svg" alt="SimpleCapture Logo">
+                <h1>SimpleCapture</h1>
+            </div>
+            <p class="tagline">High-Quality Slow-Motion Video Recording for iOS</p>
         </div>
-        <p class="app-description">A native iOS application for recording and playing back high-quality slow-motion videos. SimpleCapture is designed with simplicity and performance in mind, offering professional-grade slow-motion capabilities in an easy-to-use interface.</p>
-        
-        <div class="highlight">
-            <p>SimpleCapture provides frame rates up to 120 FPS, adjustable recording duration from 5-30 seconds, and precise playback speed control from 0.25x to 2.0x, making it perfect for analyzing sports movements, capturing fast action, or creating artistic slow-motion effects.</p>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2>Record. Slow Down. Analyze.</h2>
+                <p>SimpleCapture is a professional-grade slow-motion video tool for iPhone that lets you record at high frame rates and play back with precise speed control.</p>
+                <a href="SimpleCapture.zip" class="download-btn">Download SimpleCapture.zip</a>
+            </div>
+            <div class="hero-image">
+                <img src="generated-icon.svg" alt="SimpleCapture App" class="app-preview">
+            </div>
         </div>
-        
-        <a href="SimpleCapture.zip" class="download-btn">Download Xcode Project</a>
-        
-        <div class="features">
-            <h3>Key Features</h3>
-            <ul>
-                <li>Record videos at 60 FPS or 120 FPS for professional slow-motion effects</li>
-                <li>Adjustable recording duration from 5 to 30 seconds</li>
-                <li>Precise playback speed control from 0.25x to 2.0x</li>
-                <li>Camera switching between front and back cameras</li>
-                <li>Portrait orientation optimized UI for better user experience</li>
-                <li>High-quality video recording with optimal compression</li>
-            </ul>
+    </section>
+
+    <section class="features">
+        <div class="container">
+            <h2>Key Features</h2>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <h3>High Frame Rate Recording</h3>
+                    <p>Capture videos at 60 FPS or 120 FPS for ultra-smooth slow-motion playback.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Adjustable Playback Speed</h3>
+                    <p>Fine-tune playback from 0.25x to 2.0x speed with a simple slider control.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Configurable Duration</h3>
+                    <p>Set recording time from 5 to 30 seconds to capture exactly what you need.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Camera Switching</h3>
+                    <p>Easily switch between front and back cameras for different recording angles.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Instant Playback</h3>
+                    <p>Review your slow-motion videos instantly without leaving the app.</p>
+                </div>
+                <div class="feature-item">
+                    <h3>Video Saving</h3>
+                    <p>Save your recordings directly to your photo library for sharing and editing.</p>
+                </div>
+            </div>
         </div>
-        
-        <div class="features">
-            <h3>Requirements</h3>
-            <ul>
-                <li>iOS 14.0+</li>
-                <li>Xcode 12.0+</li>
-                <li>iPhone with front and back camera (simulator is not supported due to camera requirements)</li>
-            </ul>
+    </section>
+
+    <section class="how-it-works">
+        <div class="container">
+            <h2>How It Works</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Configure Settings</h3>
+                    <p>Set your preferred frame rate (60 or 120 FPS) and recording duration (5-30 seconds).</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>Record Video</h3>
+                    <p>Press the red button to start recording. A countdown timer shows remaining time.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Adjust Playback</h3>
+                    <p>Use the slider to set your preferred playback speed from 0.25x to 2.0x.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h3>Save or Re-record</h3>
+                    <p>Save your video to your photo library or discard it to record a new one.</p>
+                </div>
+            </div>
         </div>
-        
-        <div class="features">
-            <h3>Installation Instructions</h3>
-            <ol>
-                <li>Download the Xcode project by clicking the button above</li>
-                <li>Unzip the file and open SimpleCapture.xcodeproj in Xcode</li>
-                <li>Select your development team in the Signing & Capabilities tab</li>
-                <li>Build and run on a physical device (camera functionality requires a real device)</li>
+    </section>
+
+    <section class="technical-details">
+        <div class="container">
+            <h2>Technical Details</h2>
+            <div class="tech-columns">
+                <div class="tech-column">
+                    <h3>Requirements</h3>
+                    <ul>
+                        <li>iOS 14.0 or later</li>
+                        <li>Xcode 13.0+ for building</li>
+                        <li>iPhone with front and rear cameras</li>
+                        <li>Device must support high frame rate recording for 120 FPS</li>
+                    </ul>
+                </div>
+                <div class="tech-column">
+                    <h3>Implementation</h3>
+                    <ul>
+                        <li>Written in Swift 5</li>
+                        <li>Uses AVFoundation for camera access and recording</li>
+                        <li>UIKit-based interface with programmatic layout</li>
+                        <li>Automatic fallback to lower frame rates if needed</li>
+                        <li>Comprehensive error handling for robust performance</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="installation">
+        <div class="container">
+            <h2>Installation Instructions</h2>
+            <ol class="install-steps">
+                <li>Download the <a href="SimpleCapture.zip">SimpleCapture.zip</a> file</li>
+                <li>Extract the contents of the zip file</li>
+                <li>Open SimpleCapture.xcodeproj in Xcode</li>
+                <li>Connect your iOS device</li>
+                <li>Select your device as the build target</li>
+                <li>Press Run (▶) to build and install the app</li>
+                <li>Accept any permission requests on your device</li>
             </ol>
+            <div class="download-container">
+                <a href="SimpleCapture.zip" class="download-btn">Download SimpleCapture.zip</a>
+            </div>
         </div>
-        
-        <div class="features">
-            <h3>Usage</h3>
-            <ol>
-                <li>Grant camera permissions when prompted on first launch</li>
-                <li>Use the red button to start/stop recording</li>
-                <li>Access settings with the gear icon to adjust frame rate and recording duration</li>
-                <li>Switch between front and back cameras using the camera switch button</li>
-                <li>After recording, use the slider to adjust playback speed from 0.25x to 2.0x</li>
-                <li>Tap the record button again to return to camera mode and make a new recording</li>
-            </ol>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 SimpleCapture. All rights reserved.</p>
+            <p>This app is distributed under the MIT license.</p>
         </div>
-        
-        <div class="footer">
-            SimpleCapture © 2025 | Developed as a high-quality slow-motion video application for iOS
-        </div>
-    </div>
+    </footer>
+
     <script src="js/main.js"></script>
 </body>
 </html>
