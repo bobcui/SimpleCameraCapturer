@@ -2,515 +2,568 @@ import UIKit
 import AVFoundation
 
 class MainViewController: UIViewController {
-    // Managers
-    private var cameraManager: CameraManager!
-    private var recorderManager: RecorderManager!
-    private var playerManager: VideoPlayerManager!
-    private var settingsManager: SettingsManager!
     
     // UI Elements
-    private var cameraView: UIView!
-    private var playerView: UIView!
-    private var statusLabel: UILabel!
-    private var timerLabel: UILabel!
-    private var recordButton: UIButton!
-    private var switchCameraButton: UIButton!
-    private var settingsButton: UIButton!
-    private var playbackControlsView: UIView!
-    private var speedSlider: UISlider!
-    private var speedLabel: UILabel!
-    private var settingsPanel: SettingsPanel!
+    private let cameraView = UIView()
+    private let controlsContainer = UIView()
+    private let recordButton = UIButton(type: .system)
+    private let switchCameraButton = UIButton(type: .system)
+    private let settingsButton = UIButton(type: .system)
+    private let playerView = UIView()
+    private let speedSlider = UISlider()
+    private let speedLabel = UILabel()
+    private let currentSpeedLabel = UILabel()
+    private let timerLabel = UILabel()
+    private let playButton = UIButton(type: .system)
+    private let backButton = UIButton(type: .system)
+    private let saveButton = UIButton(type: .system)
+    private let activityIndicator = UIActivityIndicatorView(style: .large)
     
-    // Application state
-    private enum AppState {
-        case initializing, ready, recording, playback
-    }
-    private var appState: AppState = .initializing
+    // Managers
+    private let cameraManager = CameraManager()
+    private let recorderManager = RecorderManager()
+    private let playerManager = VideoPlayerManager()
+    
+    // State variables
+    private var isRecording = false
+    private var isInPlaybackMode = false
+    private var currentPlaybackSpeed: Float = 0.5 // Default 0.5x
+    private var currentFrameRate: Int = 60 // Default 60 FPS
+    private var currentDuration: Int = 10 // Default 10 seconds
+    
+    // MARK: - Lifecycle Methods
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
         setupUI()
-        setupManagers()
+        setupConstraints()
+        setupCallbacks()
         
-        // Request camera permissions
-        checkCameraPermissions()
+        // Initialize with default settings
+        recorderManager.setFrameRate(currentFrameRate)
+        recorderManager.setDuration(currentDuration)
     }
     
-    // MARK: - Setup Methods
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        // Initialize camera when view appears
+        initializeCamera()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        // Clean up when view disappears
+        if isRecording {
+            stopRecording()
+        }
+        
+        cameraManager.stopCamera()
+        playerManager.cleanup()
+    }
+    
+    // MARK: - UI Setup
     
     private func setupUI() {
         view.backgroundColor = .black
         
-        // Setup header
-        let headerView = UIView()
-        headerView.backgroundColor = UIColor.black.withAlphaComponent(0.8)
-        view.addSubview(headerView)
-        
-        let titleLabel = UILabel()
-        titleLabel.text = "SimpleCapture"
-        titleLabel.textColor = .white
-        titleLabel.font = UIFont.systemFont(ofSize: 20, weight: .medium)
-        titleLabel.textAlignment = .center
-        headerView.addSubview(titleLabel)
-        
-        let subtitleLabel = UILabel()
-        subtitleLabel.text = "Record and playback high-quality slow-motion videos"
-        subtitleLabel.textColor = UIColor.lightGray
-        subtitleLabel.font = UIFont.systemFont(ofSize: 14)
-        subtitleLabel.textAlignment = .center
-        headerView.addSubview(subtitleLabel)
-        
-        // Setup camera view
-        cameraView = UIView()
+        // Camera view
         cameraView.backgroundColor = .black
-        view.addSubview(cameraView)
         
-        // Setup player view (initially hidden)
-        playerView = UIView()
+        // Player view (initially hidden)
         playerView.backgroundColor = .black
         playerView.isHidden = true
-        view.addSubview(playerView)
         
-        // Status and timer
-        let statusContainer = UIView()
-        statusContainer.backgroundColor = UIColor.black.withAlphaComponent(0.6)
-        statusContainer.layer.cornerRadius = 15
-        view.addSubview(statusContainer)
-        
-        statusLabel = UILabel()
-        statusLabel.text = "Recording"
-        statusLabel.textColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0) // #FF3B30
-        statusLabel.font = UIFont.boldSystemFont(ofSize: 16)
-        statusLabel.isHidden = true
-        statusContainer.addSubview(statusLabel)
-        
-        timerLabel = UILabel()
-        timerLabel.text = "00:00"
+        // Timer label
         timerLabel.textColor = .white
-        timerLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 16, weight: .regular)
-        statusContainer.addSubview(timerLabel)
+        timerLabel.textAlignment = .center
+        timerLabel.font = UIFont.monospacedDigitSystemFont(ofSize: 40, weight: .bold)
+        timerLabel.text = "00:00.00"
+        timerLabel.isHidden = true
         
-        // Playback controls
-        playbackControlsView = UIView()
-        playbackControlsView.backgroundColor = UIColor.black.withAlphaComponent(0.8)
-        playbackControlsView.isHidden = true
-        view.addSubview(playbackControlsView)
+        // Record button
+        recordButton.setImage(UIImage(systemName: "circle.fill"), for: .normal)
+        recordButton.tintColor = .systemRed
+        recordButton.contentHorizontalAlignment = .fill
+        recordButton.contentVerticalAlignment = .fill
+        recordButton.addTarget(self, action: #selector(recordTapped), for: .touchUpInside)
         
-        let speedTitleLabel = UILabel()
-        speedTitleLabel.text = "Playback Speed:"
-        speedTitleLabel.textColor = .white
-        speedTitleLabel.font = UIFont.systemFont(ofSize: 14)
-        playbackControlsView.addSubview(speedTitleLabel)
-        
-        speedLabel = UILabel()
-        speedLabel.text = "0.5x"
-        speedLabel.textColor = .white
-        speedLabel.font = UIFont.systemFont(ofSize: 14)
-        playbackControlsView.addSubview(speedLabel)
-        
-        speedSlider = UISlider()
-        speedSlider.minimumValue = 0.25
-        speedSlider.maximumValue = 2.0
-        speedSlider.value = 0.5
-        speedSlider.addTarget(self, action: #selector(speedSliderChanged(_:)), for: .valueChanged)
-        playbackControlsView.addSubview(speedSlider)
-        
-        // Control buttons
-        let controlsContainer = UIView()
-        controlsContainer.backgroundColor = UIColor.black.withAlphaComponent(0.8)
-        view.addSubview(controlsContainer)
-        
-        switchCameraButton = UIButton(type: .system)
+        // Switch camera button
         switchCameraButton.setImage(UIImage(systemName: "arrow.triangle.2.circlepath.camera"), for: .normal)
         switchCameraButton.tintColor = .white
-        switchCameraButton.addTarget(self, action: #selector(switchCameraPressed), for: .touchUpInside)
-        controlsContainer.addSubview(switchCameraButton)
+        switchCameraButton.addTarget(self, action: #selector(switchCameraTapped), for: .touchUpInside)
         
-        recordButton = UIButton(type: .custom)
-        recordButton.backgroundColor = .white
-        recordButton.layer.cornerRadius = 35
-        recordButton.addTarget(self, action: #selector(recordButtonPressed), for: .touchUpInside)
-        controlsContainer.addSubview(recordButton)
-        
-        let recordIcon = UIView()
-        recordIcon.backgroundColor = UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0) // #FF3B30
-        recordIcon.layer.cornerRadius = 27
-        recordButton.addSubview(recordIcon)
-        
-        settingsButton = UIButton(type: .system)
+        // Settings button
         settingsButton.setImage(UIImage(systemName: "gear"), for: .normal)
         settingsButton.tintColor = .white
-        settingsButton.addTarget(self, action: #selector(settingsButtonPressed), for: .touchUpInside)
+        settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
+        
+        // Controls container
+        controlsContainer.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        
+        // Playback controls (initially hidden)
+        speedSlider.minimumValue = 0.25
+        speedSlider.maximumValue = 2.0
+        speedSlider.value = 0.5 // Default 0.5x
+        speedSlider.addTarget(self, action: #selector(speedChanged), for: .valueChanged)
+        speedSlider.isHidden = true
+        
+        speedLabel.text = "Playback Speed"
+        speedLabel.textColor = .white
+        speedLabel.textAlignment = .center
+        speedLabel.isHidden = true
+        
+        currentSpeedLabel.text = "0.5x"
+        currentSpeedLabel.textColor = .white
+        currentSpeedLabel.textAlignment = .center
+        currentSpeedLabel.isHidden = true
+        
+        playButton.setImage(UIImage(systemName: "play.fill"), for: .normal)
+        playButton.tintColor = .white
+        playButton.addTarget(self, action: #selector(playTapped), for: .touchUpInside)
+        playButton.isHidden = true
+        
+        backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        backButton.tintColor = .white
+        backButton.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
+        backButton.isHidden = true
+        
+        saveButton.setImage(UIImage(systemName: "square.and.arrow.down"), for: .normal)
+        saveButton.tintColor = .white
+        saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
+        saveButton.isHidden = true
+        
+        // Activity indicator
+        activityIndicator.color = .white
+        activityIndicator.hidesWhenStopped = true
+        
+        // Add subviews
+        view.addSubview(cameraView)
+        view.addSubview(playerView)
+        view.addSubview(controlsContainer)
+        controlsContainer.addSubview(recordButton)
+        controlsContainer.addSubview(switchCameraButton)
         controlsContainer.addSubview(settingsButton)
-        
-        // Settings panel
-        settingsPanel = SettingsPanel()
-        settingsPanel.delegate = self
-        settingsPanel.isHidden = true
-        view.addSubview(settingsPanel)
-        
-        // Layout constraints
-        headerView.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(timerLabel)
+        view.addSubview(speedSlider)
+        view.addSubview(speedLabel)
+        view.addSubview(currentSpeedLabel)
+        view.addSubview(playButton)
+        view.addSubview(backButton)
+        view.addSubview(saveButton)
+        view.addSubview(activityIndicator)
+    }
+    
+    private func setupConstraints() {
+        // Enable autolayout
         cameraView.translatesAutoresizingMaskIntoConstraints = false
         playerView.translatesAutoresizingMaskIntoConstraints = false
-        statusContainer.translatesAutoresizingMaskIntoConstraints = false
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        timerLabel.translatesAutoresizingMaskIntoConstraints = false
-        playbackControlsView.translatesAutoresizingMaskIntoConstraints = false
-        speedTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        speedLabel.translatesAutoresizingMaskIntoConstraints = false
-        speedSlider.translatesAutoresizingMaskIntoConstraints = false
         controlsContainer.translatesAutoresizingMaskIntoConstraints = false
-        switchCameraButton.translatesAutoresizingMaskIntoConstraints = false
         recordButton.translatesAutoresizingMaskIntoConstraints = false
-        recordIcon.translatesAutoresizingMaskIntoConstraints = false
+        switchCameraButton.translatesAutoresizingMaskIntoConstraints = false
         settingsButton.translatesAutoresizingMaskIntoConstraints = false
-        settingsPanel.translatesAutoresizingMaskIntoConstraints = false
+        timerLabel.translatesAutoresizingMaskIntoConstraints = false
+        speedSlider.translatesAutoresizingMaskIntoConstraints = false
+        speedLabel.translatesAutoresizingMaskIntoConstraints = false
+        currentSpeedLabel.translatesAutoresizingMaskIntoConstraints = false
+        playButton.translatesAutoresizingMaskIntoConstraints = false
+        backButton.translatesAutoresizingMaskIntoConstraints = false
+        saveButton.translatesAutoresizingMaskIntoConstraints = false
+        activityIndicator.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            // Header
-            headerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 60),
-            
-            titleLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 10),
-            titleLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
-            
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
-            subtitleLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
-            
-            // Camera View
-            cameraView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
+            // Camera view (full screen)
+            cameraView.topAnchor.constraint(equalTo: view.topAnchor),
             cameraView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             cameraView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            cameraView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // Player View
-            playerView.topAnchor.constraint(equalTo: headerView.bottomAnchor),
+            // Player view (full screen)
+            playerView.topAnchor.constraint(equalTo: view.topAnchor),
             playerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             playerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            playerView.heightAnchor.constraint(equalTo: cameraView.heightAnchor),
+            playerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            // Status Container
-            statusContainer.topAnchor.constraint(equalTo: cameraView.topAnchor, constant: 10),
-            statusContainer.leadingAnchor.constraint(equalTo: cameraView.leadingAnchor, constant: 10),
-            statusContainer.heightAnchor.constraint(equalToConstant: 30),
-            
-            // Status Label
-            statusLabel.leadingAnchor.constraint(equalTo: statusContainer.leadingAnchor, constant: 10),
-            statusLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
-            
-            // Timer Label
-            timerLabel.leadingAnchor.constraint(equalTo: statusLabel.trailingAnchor, constant: 10),
-            timerLabel.trailingAnchor.constraint(equalTo: statusContainer.trailingAnchor, constant: -10),
-            timerLabel.centerYAnchor.constraint(equalTo: statusContainer.centerYAnchor),
-            
-            // Playback Controls
-            playbackControlsView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            playbackControlsView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            playbackControlsView.heightAnchor.constraint(equalToConstant: 60),
-            
-            speedTitleLabel.topAnchor.constraint(equalTo: playbackControlsView.topAnchor, constant: 10),
-            speedTitleLabel.centerXAnchor.constraint(equalTo: playbackControlsView.centerXAnchor, constant: -30),
-            
-            speedLabel.centerYAnchor.constraint(equalTo: speedTitleLabel.centerYAnchor),
-            speedLabel.leadingAnchor.constraint(equalTo: speedTitleLabel.trailingAnchor, constant: 5),
-            
-            speedSlider.topAnchor.constraint(equalTo: speedTitleLabel.bottomAnchor, constant: 5),
-            speedSlider.leadingAnchor.constraint(equalTo: playbackControlsView.leadingAnchor, constant: 40),
-            speedSlider.trailingAnchor.constraint(equalTo: playbackControlsView.trailingAnchor, constant: -40),
-            
-            // Controls Container
-            controlsContainer.topAnchor.constraint(equalTo: playbackControlsView.bottomAnchor),
+            // Controls container (at bottom)
             controlsContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             controlsContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             controlsContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             controlsContainer.heightAnchor.constraint(equalToConstant: 100),
             
-            // Control Buttons
-            switchCameraButton.centerYAnchor.constraint(equalTo: controlsContainer.centerYAnchor),
-            switchCameraButton.leadingAnchor.constraint(equalTo: controlsContainer.leadingAnchor, constant: 60),
-            switchCameraButton.widthAnchor.constraint(equalToConstant: 44),
-            switchCameraButton.heightAnchor.constraint(equalToConstant: 44),
-            
+            // Record button (centered in controls)
             recordButton.centerXAnchor.constraint(equalTo: controlsContainer.centerXAnchor),
             recordButton.centerYAnchor.constraint(equalTo: controlsContainer.centerYAnchor),
             recordButton.widthAnchor.constraint(equalToConstant: 70),
             recordButton.heightAnchor.constraint(equalToConstant: 70),
             
-            recordIcon.centerXAnchor.constraint(equalTo: recordButton.centerXAnchor),
-            recordIcon.centerYAnchor.constraint(equalTo: recordButton.centerYAnchor),
-            recordIcon.widthAnchor.constraint(equalToConstant: 54),
-            recordIcon.heightAnchor.constraint(equalToConstant: 54),
+            // Switch camera button (left of record)
+            switchCameraButton.leadingAnchor.constraint(equalTo: controlsContainer.leadingAnchor, constant: 30),
+            switchCameraButton.centerYAnchor.constraint(equalTo: controlsContainer.centerYAnchor),
+            switchCameraButton.widthAnchor.constraint(equalToConstant: 40),
+            switchCameraButton.heightAnchor.constraint(equalToConstant: 40),
             
+            // Settings button (right of record)
+            settingsButton.trailingAnchor.constraint(equalTo: controlsContainer.trailingAnchor, constant: -30),
             settingsButton.centerYAnchor.constraint(equalTo: controlsContainer.centerYAnchor),
-            settingsButton.trailingAnchor.constraint(equalTo: controlsContainer.trailingAnchor, constant: -60),
-            settingsButton.widthAnchor.constraint(equalToConstant: 44),
-            settingsButton.heightAnchor.constraint(equalToConstant: 44),
+            settingsButton.widthAnchor.constraint(equalToConstant: 40),
+            settingsButton.heightAnchor.constraint(equalToConstant: 40),
             
-            // Settings Panel
-            settingsPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            settingsPanel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            settingsPanel.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            settingsPanel.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.6)
+            // Timer label (top center)
+            timerLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            timerLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
+            // Speed label (above slider)
+            speedLabel.bottomAnchor.constraint(equalTo: speedSlider.topAnchor, constant: -10),
+            speedLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
+            // Speed slider (above controls)
+            speedSlider.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 40),
+            speedSlider.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -40),
+            speedSlider.bottomAnchor.constraint(equalTo: controlsContainer.topAnchor, constant: -40),
+            
+            // Current speed label (above slider)
+            currentSpeedLabel.topAnchor.constraint(equalTo: speedSlider.bottomAnchor, constant: 10),
+            currentSpeedLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
+            // Play button (center in controls during playback)
+            playButton.centerXAnchor.constraint(equalTo: controlsContainer.centerXAnchor),
+            playButton.centerYAnchor.constraint(equalTo: controlsContainer.centerYAnchor),
+            playButton.widthAnchor.constraint(equalToConstant: 60),
+            playButton.heightAnchor.constraint(equalToConstant: 60),
+            
+            // Back button (top left)
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            backButton.widthAnchor.constraint(equalToConstant: 40),
+            backButton.heightAnchor.constraint(equalToConstant: 40),
+            
+            // Save button (top right)
+            saveButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            saveButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            saveButton.widthAnchor.constraint(equalToConstant: 40),
+            saveButton.heightAnchor.constraint(equalToConstant: 40),
+            
+            // Activity indicator (center)
+            activityIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            activityIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
-        
-        // Link controls and playback view
-        playbackControlsView.topAnchor.constraint(equalTo: cameraView.bottomAnchor).isActive = true
-        cameraView.bottomAnchor.constraint(equalTo: playbackControlsView.topAnchor).isActive = true
     }
     
-    private func setupManagers() {
-        cameraManager = CameraManager()
-        
-        recorderManager = RecorderManager(cameraManager: cameraManager)
-        recorderManager.statusLabel = statusLabel
-        recorderManager.timerLabel = timerLabel
-        recorderManager.recordButton = recordButton
-        recorderManager.delegate = self
-        
-        playerManager = VideoPlayerManager()
-        playerManager.setupPlayerView(playerView)
-        playerManager.statusLabel = statusLabel
-        playerManager.timeLabel = timerLabel
-        playerManager.speedLabel = speedLabel
-        playerManager.speedSlider = speedSlider
-        playerManager.playbackControlsView = playbackControlsView
-        playerManager.delegate = self
-        
-        settingsManager = SettingsManager()
-        settingsManager.delegate = self
-        
-        // Set initial settings on the settings panel
-        settingsPanel.setup(
-            durations: settingsManager.durationOptions.map { "\(Int($0)) seconds" },
-            frameRates: settingsManager.frameRateOptions.map { "\($0) FPS" },
-            selectedDurationIndex: settingsManager.durationOptions.firstIndex(of: settingsManager.recordingDuration) ?? 1,
-            selectedFrameRateIndex: settingsManager.frameRateOptions.firstIndex(of: settingsManager.frameRate) ?? 1
-        )
-    }
-    
-    // MARK: - Permission Handling
-    
-    private func checkCameraPermissions() {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            // Permission already granted
-            initializeCamera()
-        case .notDetermined:
-            // Permission not asked yet
-            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-                DispatchQueue.main.async {
-                    if granted {
-                        self?.initializeCamera()
-                    } else {
-                        self?.showPermissionDeniedAlert()
-                    }
-                }
+    private func setupCallbacks() {
+        // Set up recorder callbacks
+        recorderManager.onRecordingComplete = { [weak self] result in
+            guard let self = self else { return }
+            
+            self.isRecording = false
+            self.updateRecordButtonForState()
+            self.timerLabel.isHidden = true
+            
+            switch result {
+            case .success(let videoURL):
+                print("Recording completed successfully: \(videoURL.lastPathComponent)")
+                self.enterPlaybackMode(with: videoURL)
+                
+            case .failure(let error):
+                print("Recording failed: \(error.localizedDescription)")
+                self.showAlert(title: "Recording Failed", message: error.localizedDescription)
             }
-        case .denied, .restricted:
-            // Permission denied
-            showPermissionDeniedAlert()
-        @unknown default:
-            showPermissionDeniedAlert()
         }
-    }
-    
-    private func showPermissionDeniedAlert() {
-        let alert = UIAlertController(
-            title: "Camera Access Required",
-            message: "SimpleCapture needs camera access to record videos. Please enable it in Settings.",
-            preferredStyle: .alert
-        )
         
-        alert.addAction(UIAlertAction(title: "Open Settings", style: .default) { _ in
-            if let url = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(url)
+        recorderManager.onTimerUpdate = { [weak self] remainingTimeMs in
+            guard let self = self else { return }
+            
+            // Format time as MM:SS.hh
+            let seconds = remainingTimeMs / 1000
+            let milliseconds = (remainingTimeMs % 1000) / 10
+            let timeString = String(format: "%02d:%02d.%02d", seconds / 60, seconds % 60, milliseconds)
+            
+            DispatchQueue.main.async {
+                self.timerLabel.text = timeString
             }
-        })
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        present(alert, animated: true)
+        }
     }
     
     // MARK: - Camera Initialization
     
     private func initializeCamera() {
-        let success = cameraManager.setupCamera(in: cameraView)
+        activityIndicator.startAnimating()
         
-        if success {
-            cameraManager.startSession()
-            appState = .ready
+        // Initialize camera with appropriate frame rate
+        cameraManager.initialize(preferredFrameRate: currentFrameRate) { [weak self] result in
+            guard let self = self else { return }
             
-            // Apply settings
-            cameraManager.setFrameRate(fps: settingsManager.frameRate)
-            recorderManager.setDuration(settingsManager.recordingDuration)
-        } else {
-            showCameraErrorAlert()
+            DispatchQueue.main.async {
+                self.activityIndicator.stopAnimating()
+                
+                switch result {
+                case .success:
+                    print("Camera initialized successfully")
+                    // Set up preview layer
+                    if let previewLayer = self.cameraManager.getPreviewLayer() {
+                        previewLayer.frame = self.cameraView.bounds
+                        self.cameraView.layer.addSublayer(previewLayer)
+                    }
+                    
+                case .failure(let error):
+                    print("Camera initialization failed: \(error.localizedDescription)")
+                    self.showAlert(title: "Camera Error", message: error.localizedDescription)
+                    
+                    // If we failed with high frame rate, try falling back to standard frame rate
+                    if self.currentFrameRate > 60 {
+                        self.currentFrameRate = 60
+                        self.recorderManager.setFrameRate(60)
+                        
+                        // Try again with lower frame rate
+                        self.initializeCamera()
+                    }
+                }
+            }
         }
     }
     
-    private func showCameraErrorAlert() {
-        let alert = UIAlertController(
-            title: "Camera Error",
-            message: "There was a problem accessing the camera. Please restart the app and try again.",
-            preferredStyle: .alert
-        )
+    // MARK: - Recording
+    
+    private func startRecording() {
+        guard let session = cameraManager.getCaptureSession() else {
+            showAlert(title: "Cannot Record", message: "Camera not initialized properly.")
+            return
+        }
         
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        isRecording = true
+        updateRecordButtonForState()
+        timerLabel.isHidden = false
         
-        present(alert, animated: true)
+        // Start recording
+        recorderManager.startRecording(captureSession: session)
+    }
+    
+    private func stopRecording() {
+        isRecording = false
+        updateRecordButtonForState()
+        timerLabel.isHidden = true
+        recorderManager.stopRecording()
+    }
+    
+    private func updateRecordButtonForState() {
+        if isRecording {
+            recordButton.setImage(UIImage(systemName: "stop.fill"), for: .normal)
+        } else {
+            recordButton.setImage(UIImage(systemName: "circle.fill"), for: .normal)
+        }
+    }
+    
+    // MARK: - Playback
+    
+    private func enterPlaybackMode(with videoURL: URL) {
+        isInPlaybackMode = true
+        
+        // Hide camera UI
+        cameraView.isHidden = true
+        recordButton.isHidden = true
+        switchCameraButton.isHidden = true
+        settingsButton.isHidden = true
+        
+        // Show playback UI
+        playerView.isHidden = false
+        speedSlider.isHidden = false
+        speedLabel.isHidden = false
+        currentSpeedLabel.isHidden = false
+        playButton.isHidden = false
+        backButton.isHidden = false
+        saveButton.isHidden = false
+        
+        // Stop camera to free up resources
+        cameraManager.stopCamera()
+        
+        // Setup player
+        playerManager.setupPlayerInView(playerView)
+        playerManager.loadVideo(from: videoURL)
+        playerManager.setPlaybackSpeed(currentPlaybackSpeed)
+        playerManager.play()
+        
+        // Update UI
+        updatePlayButtonForState()
+    }
+    
+    private func exitPlaybackMode() {
+        isInPlaybackMode = false
+        
+        // Show camera UI
+        cameraView.isHidden = false
+        recordButton.isHidden = false
+        switchCameraButton.isHidden = false
+        settingsButton.isHidden = false
+        
+        // Hide playback UI
+        playerView.isHidden = true
+        speedSlider.isHidden = true
+        speedLabel.isHidden = true
+        currentSpeedLabel.isHidden = true
+        playButton.isHidden = true
+        backButton.isHidden = true
+        saveButton.isHidden = true
+        
+        // Clean up player
+        playerManager.cleanup()
+        
+        // Reinitialize camera
+        initializeCamera()
+    }
+    
+    private func updatePlayButtonForState() {
+        // Update play/pause button
+        let isPaused = playButton.tag == 0
+        
+        if isPaused {
+            playButton.setImage(UIImage(systemName: "play.fill"), for: .normal)
+        } else {
+            playButton.setImage(UIImage(systemName: "pause.fill"), for: .normal)
+        }
+    }
+    
+    // MARK: - Saving Video
+    
+    private func saveVideoToPhotoLibrary(from sourceURL: URL) {
+        activityIndicator.startAnimating()
+        
+        PHPhotoLibrary.requestAuthorization { [weak self] status in
+            guard let self = self else { return }
+            
+            if status == .authorized {
+                PHPhotoLibrary.shared().performChanges({
+                    PHAssetCreationRequest.forAsset().addResource(with: .video, fileURL: sourceURL, options: nil)
+                }) { success, error in
+                    DispatchQueue.main.async {
+                        self.activityIndicator.stopAnimating()
+                        
+                        if success {
+                            self.showAlert(title: "Success", message: "Video saved to Photo Library")
+                        } else {
+                            self.showAlert(title: "Error", message: "Could not save video: \(error?.localizedDescription ?? "Unknown error")")
+                        }
+                    }
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.activityIndicator.stopAnimating()
+                    self.showAlert(title: "Cannot Save Video", message: "Photo Library access is not authorized")
+                }
+            }
+        }
     }
     
     // MARK: - Button Actions
     
-    @objc private func recordButtonPressed() {
-        switch appState {
-        case .ready:
-            // Start recording
-            appState = .recording
-            recorderManager.startRecording()
-        case .recording:
-            // Do nothing, recording will stop automatically
-            break
-        case .playback:
-            // Stop playback and return to camera mode
-            appState = .ready
-            playerManager.stopPlayback()
-            cameraView.isHidden = false
-            playerView.isHidden = true
-        case .initializing:
-            // Not ready yet
-            break
+    @objc private func recordTapped() {
+        if isRecording {
+            stopRecording()
+        } else {
+            startRecording()
         }
     }
     
-    @objc private func switchCameraPressed() {
-        if appState == .ready {
-            let success = cameraManager.switchCamera()
-            if !success {
-                showCameraSwitchErrorAlert()
+    @objc private func switchCameraTapped() {
+        // Don't allow camera switch during recording
+        if isRecording { return }
+        
+        activityIndicator.startAnimating()
+        
+        cameraManager.switchCamera { [weak self] error in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                self.activityIndicator.stopAnimating()
+                
+                if let error = error {
+                    self.showAlert(title: "Camera Error", message: error.localizedDescription)
+                }
             }
         }
     }
     
-    private func showCameraSwitchErrorAlert() {
-        let alert = UIAlertController(
-            title: "Camera Switch Failed",
-            message: "Unable to switch cameras. The device may not have multiple cameras or there may be a hardware issue.",
-            preferredStyle: .alert
-        )
+    @objc private func settingsTapped() {
+        // Don't allow settings during recording
+        if isRecording { return }
         
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        let settingsPanel = SettingsPanel()
+        settingsPanel.frameRate = currentFrameRate
+        settingsPanel.recordingDuration = currentDuration
         
-        present(alert, animated: true)
-    }
-    
-    @objc private func settingsButtonPressed() {
-        toggleSettingsPanel()
-    }
-    
-    private func toggleSettingsPanel() {
-        UIView.animate(withDuration: 0.3) {
-            if self.settingsPanel.isHidden {
-                self.settingsPanel.isHidden = false
-                self.settingsPanel.transform = CGAffineTransform.identity
-            } else {
-                self.settingsPanel.transform = CGAffineTransform(translationX: 0, y: self.settingsPanel.frame.height)
-                self.settingsPanel.isHidden = true
+        settingsPanel.onSave = { [weak self] frameRate, duration in
+            guard let self = self else { return }
+            
+            // Only reinitialize camera if frame rate changed
+            let frameRateChanged = self.currentFrameRate != frameRate
+            
+            self.currentFrameRate = frameRate
+            self.currentDuration = duration
+            
+            self.recorderManager.setFrameRate(frameRate)
+            self.recorderManager.setDuration(duration)
+            
+            if frameRateChanged {
+                // Reinitialize camera with new frame rate
+                self.initializeCamera()
             }
         }
+        
+        settingsPanel.modalPresentationStyle = .formSheet
+        present(settingsPanel, animated: true)
     }
     
-    @objc private func speedSliderChanged(_ sender: UISlider) {
-        // Round to nearest 0.25
-        let roundedValue = round(sender.value * 4) / 4
-        sender.value = roundedValue
-        
-        playerManager.setPlaybackRate(roundedValue)
+    @objc private func speedChanged(_ sender: UISlider) {
+        currentPlaybackSpeed = sender.value
+        currentSpeedLabel.text = String(format: "%.2fx", currentPlaybackSpeed)
+        playerManager.setPlaybackSpeed(currentPlaybackSpeed)
     }
     
-    // MARK: - Lifecycle Methods
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
+    @objc private func playTapped() {
+        let isPaused = playButton.tag == 0
         
-        // Clean up resources
-        if appState == .recording {
-            recorderManager.stopRecording()
+        if isPaused {
+            // Currently paused, so play
+            playerManager.play()
+            playButton.tag = 1
+        } else {
+            // Currently playing, so pause
+            playerManager.pause()
+            playButton.tag = 0
         }
         
-        if appState == .playback {
-            playerManager.stopPlayback()
-        }
-        
-        cameraManager.stopSession()
-    }
-}
-
-// MARK: - RecorderManagerDelegate
-extension MainViewController: RecorderManagerDelegate {
-    func recorderDidFinishRecording(videoURL: URL) {
-        appState = .playback
-        
-        // Switch to playback mode
-        cameraView.isHidden = true
-        playerView.isHidden = false
-        
-        // Load the video for playback
-        playerManager.loadVideo(url: videoURL)
+        updatePlayButtonForState()
     }
     
-    func recorderDidFailRecording(error: Error) {
-        appState = .ready
-        
-        let alert = UIAlertController(
-            title: "Recording Failed",
-            message: "There was an error while recording: \(error.localizedDescription)",
-            preferredStyle: .alert
-        )
-        
+    @objc private func backTapped() {
+        exitPlaybackMode()
+    }
+    
+    @objc private func saveTapped() {
+        if let videoURL = cameraManager.getLastRecordedVideoURL() {
+            saveVideoToPhotoLibrary(from: videoURL)
+        } else {
+            showAlert(title: "Cannot Save", message: "No video available to save")
+        }
+    }
+    
+    // MARK: - Utility Methods
+    
+    private func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
-        
         present(alert, animated: true)
     }
 }
 
-// MARK: - VideoPlayerDelegate
-extension MainViewController: VideoPlayerDelegate {
-    func playerDidStopPlayback() {
-        appState = .ready
-    }
-}
+// MARK: - UIViewController Extensions
 
-// MARK: - SettingsDelegate
-extension MainViewController: SettingsDelegate {
-    func settingsDidUpdate() {
-        // Apply new settings
-        cameraManager.setFrameRate(fps: settingsManager.frameRate)
-        recorderManager.setDuration(settingsManager.recordingDuration)
-    }
-}
-
-// MARK: - SettingsPanelDelegate
-extension MainViewController: SettingsPanelDelegate {
-    func settingsPanel(_ panel: SettingsPanel, didChangeDurationAtIndex index: Int) {
-        if index >= 0 && index < settingsManager.durationOptions.count {
-            settingsManager.setRecordingDuration(settingsManager.durationOptions[index])
-        }
+extension MainViewController {
+    override var prefersStatusBarHidden: Bool {
+        return true
     }
     
-    func settingsPanel(_ panel: SettingsPanel, didChangeFrameRateAtIndex index: Int) {
-        if index >= 0 && index < settingsManager.frameRateOptions.count {
-            settingsManager.setFrameRate(settingsManager.frameRateOptions[index])
-        }
-    }
-    
-    func settingsPanelDidClose(_ panel: SettingsPanel) {
-        toggleSettingsPanel()
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return .portrait
     }
 }

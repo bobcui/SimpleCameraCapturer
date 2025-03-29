@@ -1,46 +1,74 @@
 import Foundation
 
 class SettingsManager {
-    // Default settings
-    private let defaultDuration: TimeInterval = 10.0
-    private let defaultFrameRate: Int = 120
     
-    // Current settings
-    private(set) var recordingDuration: TimeInterval
-    private(set) var frameRate: Int
-    
-    // Available options
-    let durationOptions: [TimeInterval] = [5.0, 10.0, 15.0, 20.0, 30.0]
-    let frameRateOptions: [Int] = [60, 120]
-    
-    // Delegate
-    weak var delegate: SettingsDelegate?
-    
-    init() {
-        self.recordingDuration = defaultDuration
-        self.frameRate = defaultFrameRate
+    // Keys for UserDefaults
+    private enum Keys {
+        static let frameRate = "SimpleCapture.frameRate"
+        static let recordingDuration = "SimpleCapture.recordingDuration"
+        static let playbackSpeed = "SimpleCapture.playbackSpeed"
     }
     
-    func setRecordingDuration(_ duration: TimeInterval) {
-        guard durationOptions.contains(duration) else { return }
-        recordingDuration = duration
-        delegate?.settingsDidUpdate()
+    // Default values
+    private let defaultFrameRate = 60
+    private let defaultRecordingDuration = 10
+    private let defaultPlaybackSpeed: Float = 0.5
+    
+    // UserDefaults instance
+    private let defaults = UserDefaults.standard
+    
+    // MARK: - Singleton
+    
+    static let shared = SettingsManager()
+    
+    private init() {
+        // Set default values if this is the first launch
+        if !defaults.bool(forKey: "SimpleCapture.initialized") {
+            resetToDefaults()
+            defaults.set(true, forKey: "SimpleCapture.initialized")
+        }
     }
     
-    func setFrameRate(_ fps: Int) {
-        guard frameRateOptions.contains(fps) else { return }
-        frameRate = fps
-        delegate?.settingsDidUpdate()
+    // MARK: - Settings Access
+    
+    var frameRate: Int {
+        get {
+            return defaults.integer(forKey: Keys.frameRate)
+        }
+        set {
+            // Only allow 60 or 120 FPS
+            let validValue = (newValue == 60 || newValue == 120) ? newValue : defaultFrameRate
+            defaults.set(validValue, forKey: Keys.frameRate)
+        }
     }
+    
+    var recordingDuration: Int {
+        get {
+            return defaults.integer(forKey: Keys.recordingDuration)
+        }
+        set {
+            // Limit between 5-30 seconds
+            let validValue = max(5, min(newValue, 30))
+            defaults.set(validValue, forKey: Keys.recordingDuration)
+        }
+    }
+    
+    var playbackSpeed: Float {
+        get {
+            return defaults.float(forKey: Keys.playbackSpeed)
+        }
+        set {
+            // Limit between 0.25x - 2.0x
+            let validValue = max(0.25, min(newValue, 2.0))
+            defaults.set(validValue, forKey: Keys.playbackSpeed)
+        }
+    }
+    
+    // MARK: - Utilities
     
     func resetToDefaults() {
-        recordingDuration = defaultDuration
-        frameRate = defaultFrameRate
-        delegate?.settingsDidUpdate()
+        defaults.set(defaultFrameRate, forKey: Keys.frameRate)
+        defaults.set(defaultRecordingDuration, forKey: Keys.recordingDuration)
+        defaults.set(defaultPlaybackSpeed, forKey: Keys.playbackSpeed)
     }
-}
-
-// Protocol for settings updates
-protocol SettingsDelegate: AnyObject {
-    func settingsDidUpdate()
 }

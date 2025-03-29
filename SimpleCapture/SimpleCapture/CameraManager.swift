@@ -1,269 +1,285 @@
-import Foundation
 import AVFoundation
 import UIKit
 
-class CameraManager: NSObject {
+class CameraManager {
+    
     // Camera properties
     private var captureSession: AVCaptureSession?
-    private var currentInput: AVCaptureDeviceInput?
-    private var videoOutput: AVCaptureMovieFileOutput?
+    private var videoDeviceInput: AVCaptureDeviceInput?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     
-    // Settings
-    private var currentFrameRate: Int = 120
-    private var isUsingFrontCamera = false
+    // Configuration
+    private var currentPosition: AVCaptureDevice.Position = .back
+    private var lastRecordedVideoURL: URL?
     
-    // Output file
-    private var tempFilePath: URL?
-    
-    // Delegates
-    weak var recordingDelegate: RecordingDelegate?
-    
-    override init() {
-        super.init()
-    }
-    
-    func setupCamera(in view: UIView) -> Bool {
-        // Initialize capture session
-        self.captureSession = AVCaptureSession()
+    // Error handling
+    enum CameraError: Error, LocalizedError {
+        case cameraUnavailable
+        case cameraSetupFailed
+        case invalidCameraInput
+        case noCamera
+        case accessDenied
+        case invalidOperation
+        case highFrameRateUnsupported
         
-        guard let captureSession = self.captureSession else { return false }
-        
-        // Set session preset
-        if captureSession.canSetSessionPreset(.hd1920x1080) {
-            captureSession.sessionPreset = .hd1920x1080
-        } else {
-            captureSession.sessionPreset = .high
-        }
-        
-        // Get the back camera
-        guard let backCamera = getCamera(position: .back) else {
-            print("Could not get back camera")
-            return false
-        }
-        
-        // Create input from camera
-        do {
-            let input = try AVCaptureDeviceInput(device: backCamera)
-            if captureSession.canAddInput(input) {
-                captureSession.addInput(input)
-                self.currentInput = input
-            } else {
-                print("Could not add camera input")
-                return false
+        var errorDescription: String? {
+            switch self {
+            case .cameraUnavailable:
+                return "Camera is unavailable"
+            case .cameraSetupFailed:
+                return "Failed to set up the camera"
+            case .invalidCameraInput:
+                return "Invalid camera input"
+            case .noCamera:
+                return "No camera available"
+            case .accessDenied:
+                return "Camera access denied"
+            case .invalidOperation:
+                return "Invalid camera operation"
+            case .highFrameRateUnsupported:
+                return "High frame rate not supported on this device"
             }
+        }
+    }
+    
+    // MARK: - Initialization
+    
+    func initialize(preferredFrameRate: Int, completion: @escaping (Result<Void, Error>) -> Void) {
+        // Check authorization status
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            setupCaptureSession(preferredFrameRate: preferredFrameRate, completion: completion)
+            
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                if granted {
+                    self?.setupCaptureSession(preferredFrameRate: preferredFrameRate, completion: completion)
+                } else {
+                    completion(.failure(CameraError.accessDenied))
+                }
+            }
+            
+        default:
+            completion(.failure(CameraError.accessDenied))
+        }
+    }
+    
+    private func setupCaptureSession(preferredFrameRate: Int, completion: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            // Create a new capture session
+            let session = AVCaptureSession()
+            session.sessionPreset = .high
+            
+            do {
+                // Get the appropriate camera
+                guard let videoDevice = self.getCamera(position: self.currentPosition) else {
+                    completion(.failure(CameraError.noCamera))
+                    return
+                }
+                
+                // Check if device supports requested frame rate
+                let supportedFrameRates = try self.getSupportedFrameRates(for: videoDevice)
+                
+                if preferredFrameRate > 60 && !supportedFrameRates.contains(where: { $0 >= Float64(preferredFrameRate) }) {
+                    completion(.failure(CameraError.highFrameRateUnsupported))
+                    return
+                }
+                
+                // Try to set the frame rate
+                try self.setFrameRate(for: videoDevice, fps: preferredFrameRate)
+                
+                // Create input from device
+                let videoDeviceInput = try AVCaptureDeviceInput(device: videoDevice)
+                
+                // Check if session can add input
+                if session.canAddInput(videoDeviceInput) {
+                    session.addInput(videoDeviceInput)
+                    self.videoDeviceInput = videoDeviceInput
+                } else {
+                    completion(.failure(CameraError.invalidCameraInput))
+                    return
+                }
+                
+                // Create and add output
+                let videoOutput = AVCaptureVideoDataOutput()
+                videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+                
+                if session.canAddOutput(videoOutput) {
+                    session.addOutput(videoOutput)
+                }
+                
+                // Create and configure preview layer
+                let previewLayer = AVCaptureVideoPreviewLayer(session: session)
+                previewLayer.videoGravity = .resizeAspectFill
+                
+                // Store references
+                self.captureSession = session
+                self.previewLayer = previewLayer
+                
+                // Start the session
+                session.startRunning()
+                
+                completion(.success(()))
+                
+            } catch {
+                print("Camera setup failed: \(error.localizedDescription)")
+                
+                // Map the error if possible
+                if let error = error as? CameraError {
+                    completion(.failure(error))
+                } else {
+                    completion(.failure(CameraError.cameraSetupFailed))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Camera Control
+    
+    func switchCamera(completion: @escaping (Error?) -> Void) {
+        guard let session = captureSession, let currentInput = videoDeviceInput else {
+            completion(CameraError.invalidOperation)
+            return
+        }
+        
+        // Determine the new position
+        let newPosition: AVCaptureDevice.Position = currentPosition == .back ? .front : .back
+        
+        // Get the new camera
+        guard let newCamera = getCamera(position: newPosition) else {
+            completion(CameraError.noCamera)
+            return
+        }
+        
+        do {
+            // Create input for the new camera
+            let newInput = try AVCaptureDeviceInput(device: newCamera)
+            
+            // Configure the session
+            session.beginConfiguration()
+            
+            // Remove old input
+            session.removeInput(currentInput)
+            
+            // Add new input
+            if session.canAddInput(newInput) {
+                session.addInput(newInput)
+                videoDeviceInput = newInput
+                currentPosition = newPosition
+            } else {
+                // If can't add the new input, add the old one back
+                session.addInput(currentInput)
+                throw CameraError.invalidCameraInput
+            }
+            
+            session.commitConfiguration()
+            
+            completion(nil)
+            
         } catch {
-            print("Error creating camera input: \(error)")
-            return false
-        }
-        
-        // Setup video output
-        self.videoOutput = AVCaptureMovieFileOutput()
-        if let videoOutput = self.videoOutput, captureSession.canAddOutput(videoOutput) {
-            captureSession.addOutput(videoOutput)
-        } else {
-            print("Could not add video output")
-            return false
-        }
-        
-        // Setup preview layer
-        self.previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-        guard let previewLayer = self.previewLayer else { return false }
-        
-        previewLayer.videoGravity = .resizeAspectFill
-        previewLayer.frame = view.bounds
-        view.layer.addSublayer(previewLayer)
-        
-        // Set frame rate
-        setFrameRate(fps: currentFrameRate)
-        
-        return true
-    }
-    
-    func startSession() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.captureSession?.startRunning()
+            completion(error)
         }
     }
     
-    func stopSession() {
+    func stopCamera() {
         captureSession?.stopRunning()
     }
     
-    func switchCamera() -> Bool {
-        guard let session = captureSession, let currentInput = currentInput else { return false }
-        
-        // Begin session configuration
-        session.beginConfiguration()
-        
-        // Remove current input
-        session.removeInput(currentInput)
-        
-        // Get new camera
-        let newPosition: AVCaptureDevice.Position = isUsingFrontCamera ? .back : .front
-        guard let newCamera = getCamera(position: newPosition) else {
-            // Failed to get new camera, revert to old one
-            if session.canAddInput(currentInput) {
-                session.addInput(currentInput)
-            }
-            session.commitConfiguration()
-            return false
-        }
-        
-        // Add new input
-        do {
-            let newInput = try AVCaptureDeviceInput(device: newCamera)
-            if session.canAddInput(newInput) {
-                session.addInput(newInput)
-                self.currentInput = newInput
-                self.isUsingFrontCamera = !isUsingFrontCamera
-            } else {
-                // Cannot add new input, revert to old one
-                if session.canAddInput(currentInput) {
-                    session.addInput(currentInput)
-                }
-                session.commitConfiguration()
-                return false
-            }
-        } catch {
-            print("Error creating new input: \(error)")
-            // Revert to old input
-            if session.canAddInput(currentInput) {
-                session.addInput(currentInput)
-            }
-            session.commitConfiguration()
-            return false
-        }
-        
-        // Update frame rate for new camera
-        setFrameRate(fps: currentFrameRate)
-        
-        // Commit configuration
-        session.commitConfiguration()
-        return true
+    // MARK: - Helper Methods
+    
+    private func getCamera(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+        return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position)
     }
     
-    func setFrameRate(fps: Int) {
-        self.currentFrameRate = fps
-        
-        guard let device = currentInput?.device else { return }
+    private func getSupportedFrameRates(for device: AVCaptureDevice) throws -> [Float64] {
+        var frameRates: [Float64] = []
         
         do {
             try device.lockForConfiguration()
             
-            let formats = device.formats
-            var selectedFormat: AVCaptureDevice.Format?
-            var maxFrameRate = 0
+            // Go through all formats for this device
+            for format in device.formats {
+                // Find the highest supported frame rate
+                let ranges = format.videoSupportedFrameRateRanges
+                for range in ranges {
+                    frameRates.append(range.maxFrameRate)
+                }
+            }
             
-            // Find the format that supports the highest frame rate at 1080p
-            for format in formats {
+            device.unlockForConfiguration()
+            
+            return frameRates.sorted()
+            
+        } catch {
+            print("Error getting supported frame rates: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    private func setFrameRate(for device: AVCaptureDevice, fps: Int) throws {
+        do {
+            try device.lockForConfiguration()
+            
+            // Find a format that supports the requested FPS
+            var selectedFormat: AVCaptureDevice.Format?
+            var maxWidth: Int32 = 0
+            
+            // Look for the format with highest resolution that supports our FPS
+            for format in device.formats {
                 let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-                let frameRates = format.videoSupportedFrameRateRanges
+                let width = dimensions.width
                 
-                if dimensions.height >= 1080 {
-                    for range in frameRates {
-                        if Int(range.maxFrameRate) > maxFrameRate && Int(range.maxFrameRate) >= fps {
-                            maxFrameRate = Int(range.maxFrameRate)
-                            selectedFormat = format
-                        }
+                // Check if this format supports the desired frame rate
+                let ranges = format.videoSupportedFrameRateRanges
+                for range in ranges {
+                    if range.maxFrameRate >= Float64(fps) && width >= maxWidth {
+                        selectedFormat = format
+                        maxWidth = width
                     }
                 }
             }
             
+            // Set the format if we found one
             if let format = selectedFormat {
                 device.activeFormat = format
                 
                 // Set frame rate
-                let targetFPS = fps > maxFrameRate ? maxFrameRate : fps
-                device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
-                device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+                device.activeVideoMinFrameDuration = CMTimeMake(value: 1, timescale: Int32(fps))
+                device.activeVideoMaxFrameDuration = CMTimeMake(value: 1, timescale: Int32(fps))
                 
-                print("Set frame rate to \(targetFPS) FPS")
+                print("Set camera to \(fps) FPS with resolution \(maxWidth)p")
+            } else {
+                print("No format available for \(fps) FPS")
+                // Use the default format but try to set the frame rate anyway
+                device.activeVideoMinFrameDuration = CMTimeMake(value: 1, timescale: Int32(fps))
+                device.activeVideoMaxFrameDuration = CMTimeMake(value: 1, timescale: Int32(fps))
             }
             
             device.unlockForConfiguration()
+            
         } catch {
-            print("Error setting frame rate: \(error)")
+            print("Error setting frame rate: \(error.localizedDescription)")
+            throw error
         }
     }
     
-    func startRecording(duration: TimeInterval) {
-        guard let output = videoOutput, !output.isRecording else { return }
-        
-        // Create a unique temporary file path
-        let tempDir = NSTemporaryDirectory()
-        let tempFileName = "recording-\(Date().timeIntervalSince1970).mp4"
-        tempFilePath = URL(fileURLWithPath: tempDir).appendingPathComponent(tempFileName)
-        
-        guard let filePath = tempFilePath else { return }
-        
-        // Create connection
-        guard let connection = output.connection(with: .video) else {
-            print("No video connection available")
-            return
-        }
-        
-        // Set video orientation
-        if connection.isVideoOrientationSupported {
-            connection.videoOrientation = AVCaptureVideoOrientation.portrait
-        }
-        
-        // Start recording
-        output.startRecording(to: filePath, recordingDelegate: self)
-        
-        // Set up timer to stop recording
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
-            if output.isRecording {
-                output.stopRecording()
-            }
-        }
+    // MARK: - Accessors
+    
+    func getPreviewLayer() -> AVCaptureVideoPreviewLayer? {
+        return previewLayer
     }
     
-    func stopRecording() {
-        if let output = videoOutput, output.isRecording {
-            output.stopRecording()
-        }
+    func getCaptureSession() -> AVCaptureSession? {
+        return captureSession
     }
     
-    // Helper method to get camera
-    private func getCamera(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-        let discoverySession = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInWideAngleCamera],
-            mediaType: .video,
-            position: position
-        )
-        
-        return discoverySession.devices.first
+    func getLastRecordedVideoURL() -> URL? {
+        return lastRecordedVideoURL
     }
     
-    // Reset to prepare for a new recording
-    func reset() {
-        tempFilePath = nil
+    func setLastRecordedVideoURL(_ url: URL) {
+        lastRecordedVideoURL = url
     }
-}
-
-// MARK: - AVCaptureFileOutputRecordingDelegate
-extension CameraManager: AVCaptureFileOutputRecordingDelegate {
-    func fileOutput(_ output: AVCaptureFileOutput, didStartRecordingTo fileURL: URL, from connections: [AVCaptureConnection]) {
-        // Notify delegate that recording has started
-        recordingDelegate?.recordingDidStart()
-    }
-    
-    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
-        if let error = error {
-            print("Error recording video: \(error)")
-            recordingDelegate?.recordingDidFail(with: error)
-            return
-        }
-        
-        // Notify delegate that recording completed successfully
-        recordingDelegate?.recordingDidFinish(fileURL: outputFileURL)
-    }
-}
-
-// Protocol for recording events
-protocol RecordingDelegate: AnyObject {
-    func recordingDidStart()
-    func recordingDidFinish(fileURL: URL)
-    func recordingDidFail(with error: Error)
 }
