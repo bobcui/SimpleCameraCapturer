@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="SimpleCapture - Record and playback high-quality slow-motion videos">
+    <title>SimpleCapture</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="app-header">
+            <h1>SimpleCapture</h1>
+            <p class="app-description">Record and playback high-quality slow-motion videos</p>
+        </header>
+
+        <!-- Main Camera View -->
+        <div class="camera-container">
+            <video id="camera-view" autoplay playsinline muted></video>
+            
+            <!-- Status Indicators -->
+            <div class="status-container">
+                <span id="status-indicator" class="hidden">Recording</span>
+                <span id="timer-display">00:00</span>
+            </div>
+            
+            <!-- Recorded Video Player (initially hidden) -->
+            <video id="playback-view" class="hidden" loop playsinline muted></video>
+        </div>
+        
+        <!-- Playback Controls (initially hidden) -->
+        <div id="playback-controls" class="playback-controls hidden">
+            <label for="speed-control">Playback Speed: <span id="speed-value">0.5x</span></label>
+            <input type="range" id="speed-control" min="0.25" max="2" step="0.25" value="0.5">
+        </div>
+        
+        <!-- Settings Panel (initially hidden) -->
+        <div id="settings-panel" class="settings-panel hidden">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button id="close-settings" class="icon-button">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-group">
+                    <label for="duration-select">Recording Duration</label>
+                    <select id="duration-select">
+                        <option value="5">5 seconds</option>
+                        <option value="10" selected>10 seconds</option>
+                        <option value="15">15 seconds</option>
+                        <option value="20">20 seconds</option>
+                        <option value="30">30 seconds</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label for="fps-select">Frame Rate</label>
+                    <select id="fps-select">
+                        <option value="60">60 FPS</option>
+                        <option value="120" selected>120 FPS</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Control Buttons -->
+        <div class="controls-container">
+            <button id="switch-camera" class="control-button">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <button id="record-button" class="record-button">
+                <div class="record-icon"></div>
+            </button>
+            <button id="settings-button" class="control-button">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/camera.js"></script>
+    <script src="js/recorder.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
